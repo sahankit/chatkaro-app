@@ -180,7 +180,7 @@ function App() {
     if (!message.trim()) return;
     
     const privateMessage = {
-      id: Date.now(),
+      id: `${user.username}-${toUsername}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       from: user.username,
       to: toUsername,
       content: message.trim(),
@@ -388,6 +388,17 @@ function App() {
           };
         }
         
+        // Check if message already exists to prevent duplicates
+        const messageExists = chat.messages.some(existingMsg => 
+          existingMsg.id === message.id || 
+          (existingMsg.timestamp === message.timestamp && existingMsg.content === message.content)
+        );
+        
+        if (messageExists) {
+          console.log('Duplicate private message detected, skipping');
+          return prev; // Return unchanged state
+        }
+        
         // Add message and increment unread count if minimized
         const updatedChat = {
           ...chat,
@@ -502,6 +513,7 @@ function App() {
       socket.off('join_error');
       socket.off('room_joined');
       socket.off('new_message');
+      socket.off('private_message');
       socket.off('user_joined_room');
       socket.off('user_left');
       socket.off('room_updated');
