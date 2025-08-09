@@ -1212,17 +1212,22 @@
 /* Private Chat Popup Styles */
 .private-chat-popup {
   position: fixed;
-  bottom: 0;
+  bottom: 20px;
   right: 20px;
   width: 320px;
+  max-height: calc(100vh - 40px);
+  min-height: 56px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: none;
-  border-radius: 16px 16px 0 0;
+  border-radius: 16px;
   box-shadow: 0 -8px 32px rgba(102, 126, 234, 0.3);
-  z-index: 1000;
+  z-index: 9999;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   backdrop-filter: blur(10px);
+  /* Ensure popup is always visible */
+  transform: translateZ(0);
+  will-change: transform;
 }
 
 .private-chat-popup.minimized {
@@ -1231,6 +1236,7 @@
 }
 
 .private-chat-popup:not(.minimized) {
+  height: min(456px, calc(100vh - 40px));
   animation: slideUp 0.3s ease-out;
 }
 
@@ -1245,8 +1251,16 @@
   }
 }
 
-.private-chat-popup:not(:first-child) {
+.private-chat-popup:nth-child(n+2) {
   right: calc(20px + (340px * var(--popup-index, 0)));
+}
+
+/* Ensure popups don't go off screen on smaller screens */
+@media (max-width: 1200px) {
+  .private-chat-popup:nth-child(n+2) {
+    bottom: calc(20px + (76px * var(--popup-index, 0)));
+    right: 20px;
+  }
 }
 
 .private-chat-header {
@@ -1340,7 +1354,7 @@
 }
 
 .private-chat-body {
-  height: 400px;
+  height: calc(100% - 56px);
   display: flex;
   flex-direction: column;
   background: white;
@@ -1511,12 +1525,19 @@
     width: calc(100vw - 20px);
     right: 10px;
     left: 10px;
-    border-radius: 20px 20px 0 0;
+    bottom: 10px;
+    max-height: calc(100vh - 20px);
+    border-radius: 20px;
   }
   
-  .private-chat-popup:not(:first-child) {
+  .private-chat-popup:nth-child(n+2) {
+    bottom: calc(10px + (80px * var(--popup-index, 0)));
     right: 10px;
-    bottom: 60px;
+    left: 10px;
+  }
+  
+  .private-chat-popup:not(.minimized) {
+    height: min(400px, calc(100vh - 20px));
   }
   
   .private-chat-header {
