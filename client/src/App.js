@@ -3,7 +3,7 @@ import io from 'socket.io-client';
 import { Send, Users, MessageCircle, Globe, Heart, Music, GraduationCap, ChevronDown } from 'lucide-react';
 import './App.css';
 
-const socket = io(process.env.NODE_ENV === 'production' ? 'https://chatkaro-backend-pxk5.onrender.com' : 'http://localhost:5000', {
+const socket = io(process.env.NODE_ENV === 'production' ? 'https://chatkaro-backend-updated-1.onrender.com' : 'http://localhost:5000', {
   autoConnect: true,
   reconnection: true,
   reconnectionAttempts: 5,
