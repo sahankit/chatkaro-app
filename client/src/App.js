@@ -10,6 +10,89 @@ const socket = io(process.env.NODE_ENV === 'production' ? 'https://chatkaro-back
   reconnectionDelay: 1000
 });
 
+// Private Chat Popup Component
+function PrivateChatPopup({ chat, onClose, onMinimize, onSendMessage, currentUser }) {
+  const [message, setMessage] = useState('');
+  const messagesEndRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [chat.messages]);
+
+  const handleSend = (e) => {
+    e.preventDefault();
+    if (message.trim()) {
+      onSendMessage(message);
+      setMessage('');
+    }
+  };
+
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend(e);
+    }
+  };
+
+  return (
+    <div className={`private-chat-popup ${chat.isMinimized ? 'minimized' : ''}`}>
+      <div className="private-chat-header">
+        <div className="private-chat-title">
+          <div className="user-avatar small">
+            {chat.username.charAt(0).toUpperCase()}
+          </div>
+          <span>{chat.username}</span>
+          {chat.unreadCount > 0 && (
+            <span className="unread-badge">{chat.unreadCount}</span>
+          )}
+        </div>
+        <div className="private-chat-controls">
+          <button onClick={onMinimize} className="minimize-btn">
+            {chat.isMinimized ? '▲' : '▼'}
+          </button>
+          <button onClick={onClose} className="close-btn">✕</button>
+        </div>
+      </div>
+      
+      {!chat.isMinimized && (
+        <div className="private-chat-body">
+          <div className="private-chat-messages">
+            {chat.messages.map((msg, index) => (
+              <div key={index} className={`private-message ${msg.from === currentUser ? 'sent' : 'received'}`}>
+                <div className="private-message-content">
+                  <span className="private-message-text">{msg.content}</span>
+                  <span className="private-message-time">
+                    {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+          
+          <form onSubmit={handleSend} className="private-chat-input">
+            <input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyPress={handleKeyPress}
+              placeholder={`Message ${chat.username}...`}
+              maxLength={500}
+            />
+            <button type="submit" disabled={!message.trim()}>
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function App() {
   const [user, setUser] = useState(null);
   const [username, setUsername] = useState('');
@@ -27,10 +110,13 @@ function App() {
   const [isJoining, setIsJoining] = useState(false);
   const [isRestoringSession, setIsRestoringSession] = useState(true);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [privateChats, setPrivateChats] = useState(new Map());
+  const [showUsersDropdown, setShowUsersDropdown] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const audioRef = useRef(null);
+  const usersDropdownRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -46,6 +132,75 @@ function App() {
     }
   }, [soundEnabled]);
 
+  const startPrivateChat = (username) => {
+    if (username === user?.username) return; // Can't chat with yourself
+    
+    setPrivateChats(prev => {
+      const newChats = new Map(prev);
+      if (!newChats.has(username)) {
+        newChats.set(username, {
+          username,
+          messages: [],
+          isMinimized: false,
+          unreadCount: 0
+        });
+      }
+      return newChats;
+    });
+    setShowUsersDropdown(false);
+  };
+
+  const closePrivateChat = (username) => {
+    setPrivateChats(prev => {
+      const newChats = new Map(prev);
+      newChats.delete(username);
+      return newChats;
+    });
+  };
+
+  const minimizePrivateChat = (username) => {
+    setPrivateChats(prev => {
+      const newChats = new Map(prev);
+      const chat = newChats.get(username);
+      if (chat) {
+        newChats.set(username, { 
+          ...chat, 
+          isMinimized: !chat.isMinimized,
+          unreadCount: chat.isMinimized ? 0 : chat.unreadCount // Clear unread when opening
+        });
+      }
+      return newChats;
+    });
+  };
+
+  const sendPrivateMessage = (toUsername, message) => {
+    if (!message.trim()) return;
+    
+    const privateMessage = {
+      id: Date.now(),
+      from: user.username,
+      to: toUsername,
+      content: message.trim(),
+      timestamp: new Date().toISOString()
+    };
+
+    // Add message to local chat
+    setPrivateChats(prev => {
+      const newChats = new Map(prev);
+      const chat = newChats.get(toUsername);
+      if (chat) {
+        newChats.set(toUsername, {
+          ...chat,
+          messages: [...chat.messages, privateMessage]
+        });
+      }
+      return newChats;
+    });
+
+    // Emit to server
+    socket.emit('private_message', privateMessage);
+  };
+
   const handleScroll = () => {
     if (messagesContainerRef.current) {
       const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current;
@@ -57,6 +212,23 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Click outside handler for users dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (usersDropdownRef.current && !usersDropdownRef.current.contains(event.target)) {
+        setShowUsersDropdown(false);
+      }
+    };
+
+    if (showUsersDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showUsersDropdown]);
 
   // Helper function to get URL parameters
   const getUrlParams = () => {
@@ -192,6 +364,42 @@ function App() {
       }
       // Auto-scroll to bottom when receiving a message
       setTimeout(scrollToBottom, 100);
+    });
+
+    socket.on('private_message', (message) => {
+      console.log('Received private message:', message);
+      const fromUser = message.from;
+      
+      // Add message to private chat
+      setPrivateChats(prev => {
+        const newChats = new Map(prev);
+        let chat = newChats.get(fromUser);
+        
+        if (!chat) {
+          // Create new chat if it doesn't exist
+          chat = {
+            username: fromUser,
+            messages: [],
+            isMinimized: true,
+            unreadCount: 0
+          };
+        }
+        
+        // Add message and increment unread count if minimized
+        const updatedChat = {
+          ...chat,
+          messages: [...chat.messages, message],
+          unreadCount: chat.isMinimized ? chat.unreadCount + 1 : chat.unreadCount
+        };
+        
+        newChats.set(fromUser, updatedChat);
+        return newChats;
+      });
+      
+      // Play notification sound
+      if (message.from !== user?.username) {
+        playNotificationSound();
+      }
     });
 
     socket.on('user_joined_room', (data) => {
@@ -540,9 +748,13 @@ function App() {
               <div className="chat-header">
                 <div className="chat-title">
                   <h2>{currentRoom.roomName}</h2>
-                  <span className="online-count">
+                  <span 
+                    className="online-count clickable"
+                    onClick={() => setShowUsersDropdown(!showUsersDropdown)}
+                  >
                     <Users className="w-4 h-4" />
                     {onlineUsers.length} online
+                    <ChevronDown className="w-4 h-4" />
                   </span>
                 </div>
                 <button 
@@ -553,6 +765,31 @@ function App() {
                   {soundEnabled ? '🔊' : '🔇'}
                 </button>
               </div>
+
+              {/* Users Dropdown */}
+              {showUsersDropdown && (
+                <div className="users-dropdown" ref={usersDropdownRef}>
+                  <div className="users-dropdown-header">
+                    <h4>Online Users ({onlineUsers.length})</h4>
+                  </div>
+                  <div className="users-list">
+                    {onlineUsers.map((username, index) => (
+                      <div 
+                        key={index}
+                        className={`user-item ${username === user?.username ? 'current-user' : ''}`}
+                        onClick={() => username !== user?.username && startPrivateChat(username)}
+                      >
+                        <div className="user-avatar">
+                          {username.charAt(0).toUpperCase()}
+                        </div>
+                        <span className="user-name">{username}</span>
+                        {username === user?.username && <span className="you-badge">(You)</span>}
+                        {username !== user?.username && <span className="chat-hint">Click to chat</span>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="messages-container">
                 <div className="messages" ref={messagesContainerRef} onScroll={handleScroll}>
@@ -676,6 +913,18 @@ function App() {
           </div>
         </div>
       </footer>
+      
+      {/* Private Chat Popups */}
+      {Array.from(privateChats.entries()).map(([username, chat]) => (
+        <PrivateChatPopup
+          key={username}
+          chat={chat}
+          onClose={() => closePrivateChat(username)}
+          onMinimize={() => minimizePrivateChat(username)}
+          onSendMessage={(message) => sendPrivateMessage(username, message)}
+          currentUser={user?.username}
+        />
+      ))}
       
       {/* Hidden audio element for notifications */}
       <audio ref={audioRef} preload="auto">

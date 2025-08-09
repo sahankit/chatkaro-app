@@ -377,6 +377,49 @@ io.on('connection', (socket) => {
     console.log(`💬 ${user.username} in ${room.name}: ${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}`);
   });
 
+  // Handle private messages
+  socket.on('private_message', (messageData) => {
+    const user = users.get(socket.id);
+    if (!user) return;
+
+    const { to, content, id, timestamp } = messageData;
+    
+    // Basic validation
+    if (!to || !content || content.trim().length === 0) return;
+    if (content.length > 1000) {
+      socket.emit('error', { message: 'Message too long (max 1000 characters)' });
+      return;
+    }
+
+    // Find the recipient
+    let recipientSocketId = null;
+    for (const [socketId, userData] of users.entries()) {
+      if (userData.username === to) {
+        recipientSocketId = socketId;
+        break;
+      }
+    }
+
+    if (!recipientSocketId) {
+      socket.emit('error', { message: 'User not found or offline' });
+      return;
+    }
+
+    // Create the private message
+    const privateMessage = {
+      id: id || uuidv4(),
+      from: user.username,
+      to: to,
+      content: content.trim(),
+      timestamp: timestamp || new Date().toISOString()
+    };
+
+    // Send to recipient
+    socket.to(recipientSocketId).emit('private_message', privateMessage);
+    
+    console.log(`💌 Private message from ${user.username} to ${to}: ${content.substring(0, 30)}${content.length > 30 ? '...' : ''}`);
+  });
+
   // Handle typing indicators
   socket.on('typing_start', () => {
     const user = users.get(socket.id);
