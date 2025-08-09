@@ -696,7 +696,18 @@ function App() {
             </div>
           </div>
           <div className="header-right">
-            <span className="username">Welcome, {user.username}!</span>
+            <div className="user-profile">
+              <div className="user-avatar-header">
+                {user.username.charAt(0).toUpperCase()}
+              </div>
+              <div className="user-info">
+                <span className="username">{user.username}</span>
+                <div className="connection-status">
+                  <div className={`status-indicator ${isConnected ? 'online' : 'offline'}`}></div>
+                  <span className="status-text">{isConnected ? 'Online' : 'Connecting...'}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -732,14 +743,25 @@ function App() {
                       key={room.id}
                       onClick={() => joinRoom(room.id)}
                       className={`room-item ${currentRoom?.roomId === room.id ? 'active' : ''}`}
+                      title={`Join ${room.name} - ${room.description}`}
                     >
+                      <div className="room-icon">
+                        {getCategoryIcon(category)}
+                      </div>
                       <div className="room-info">
                         <span className="room-name">{room.name}</span>
                         <span className="room-description">{room.description}</span>
                       </div>
-                      <div className="room-users">
-                        <Users className="w-4 h-4" />
-                        <span>{room.userCount || 0}</span>
+                      <div className="room-stats">
+                        <div className="room-users">
+                          <Users className="w-4 h-4" />
+                          <span>{room.userCount || 0}</span>
+                        </div>
+                        {(room.userCount || 0) > 0 && (
+                          <div className="activity-indicator">
+                            <div className="pulse-dot"></div>
+                          </div>
+                        )}
                       </div>
                     </button>
                   ))}
@@ -809,15 +831,24 @@ function App() {
               <div className="messages-container">
                 <div className="messages" ref={messagesContainerRef} onScroll={handleScroll}>
                   {messages.map((message, index) => (
-                    <div key={message.id}>
+                    <div key={message.id} className={`message-wrapper ${message.username === user?.username ? 'own-message' : ''} ${message.isSystemMessage ? 'system-message' : ''}`}>
+                      {!message.isSystemMessage && (
+                        <div className="message-avatar">
+                          {message.username.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div className="message">
                         <div className="message-header">
-                          <span className="message-username">{message.username}</span>
+                          <span className={`message-username ${message.username === user?.username ? 'own-username' : ''}`}>
+                            {message.username}
+                          </span>
                           <span className="message-time">
-                            {new Date(message.timestamp).toLocaleTimeString()}
+                            {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
                         </div>
-                        <div className="message-content">{message.content}</div>
+                        <div className={`message-content ${message.isSystemMessage ? 'system-content' : ''}`}>
+                          {message.content}
+                        </div>
                       </div>
                       {/* Show ad every 10 messages */}
                       {(index + 1) % 10 === 0 && index < messages.length - 1 && (
@@ -845,19 +876,51 @@ function App() {
                 )}
               </div>
 
+              {/* Typing indicator */}
+              {typingUsers.length > 0 && (
+                <div className="typing-indicator">
+                  <div className="typing-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <span className="typing-text">
+                    {typingUsers.length === 1 
+                      ? `${typingUsers[0]} is typing...` 
+                      : `${typingUsers.length} people are typing...`
+                    }
+                  </span>
+                </div>
+              )}
+
               <form onSubmit={sendMessage} className="message-form">
-                <input
-                  type="text"
-                  placeholder="Type your message... (Press Enter to send)"
-                  value={newMessage}
-                  onChange={handleTyping}
-                  onKeyPress={handleKeyPress}
-                  maxLength={500}
-                  autoComplete="off"
-                />
-                <button type="submit" disabled={!newMessage.trim()}>
-                  <Send className="w-5 h-5" />
-                </button>
+                <div className="input-container">
+                  <input
+                    type="text"
+                    placeholder="Type your message... (Press Enter to send)"
+                    value={newMessage}
+                    onChange={handleTyping}
+                    onKeyPress={handleKeyPress}
+                    maxLength={500}
+                    autoComplete="off"
+                    className="message-input"
+                  />
+                  <div className="input-actions">
+                    <div className="character-count">
+                      <span className={newMessage.length > 450 ? 'warning' : ''}>
+                        {newMessage.length}/500
+                      </span>
+                    </div>
+                    <button 
+                      type="submit" 
+                      disabled={!newMessage.trim()}
+                      className="send-button"
+                      title="Send message (Enter)"
+                    >
+                      <Send className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
               </form>
             </>
           ) : (
