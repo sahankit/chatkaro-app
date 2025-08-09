@@ -1,0 +1,34 @@
+runtime: nodejs20
+
+# Environment variables
+env_variables:
+  NODE_ENV: production
+  PORT: 8080
+  HOST: 0.0.0.0
+
+# Instance configuration
+instance_class: F2
+automatic_scaling:
+  min_instances: 1
+  max_instances: 10
+  target_cpu_utilization: 0.6
+
+# Network configuration
+network:
+  session_affinity: true
+
+# Health check
+readiness_check:
+  path: "/health"
+  check_interval_sec: 5
+  timeout_sec: 4
+  failure_threshold: 2
+  success_threshold: 2
+  app_start_timeout_sec: 300
+
+liveness_check:
+  path: "/health"
+  check_interval_sec: 30
+  timeout_sec: 4
+  failure_threshold: 4
+  success_threshold: 2

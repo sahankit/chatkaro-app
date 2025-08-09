@@ -1,0 +1,31 @@
+{
+  "name": "chatkaro",
+  "version": "1.0.0",
+  "description": "Real-time chat application with URL-based persistence",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "build": "cd client && npm run build",
+    "install-all": "cd server && npm install && cd ../client && npm install",
+    "dev": "concurrently \"npm run server\" \"npm run client\"",
+    "server": "cd server && npm run dev",
+    "client": "cd client && npm start",
+    "deploy": "./quick-deploy.sh",
+    "gcp-deploy": "gcloud app deploy"
+  },
+  "keywords": [
+    "chat",
+    "realtime",
+    "socket.io",
+    "react",
+    "nodejs"
+  ],
+  "author": "Ankit Sah",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
