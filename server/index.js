@@ -214,7 +214,7 @@ io.on('connection', (socket) => {
   });
 
   // Handle user joining
-  socket.on('join_user', (userData) => {
+  socket.on('join', (userData) => {
     const { username } = userData;
     
     if (!username || username.trim().length === 0) {
@@ -250,7 +250,8 @@ io.on('connection', (socket) => {
   });
 
   // Handle joining a room
-  socket.on('join_room', (roomId) => {
+  socket.on('join_room', (data) => {
+    const { roomId } = data;
     const user = users.get(socket.id);
     if (!user || !rooms.has(roomId)) return;
 
@@ -377,14 +378,14 @@ io.on('connection', (socket) => {
   });
 
   // Handle typing indicators
-  socket.on('typing', () => {
+  socket.on('typing_start', () => {
     const user = users.get(socket.id);
     if (user && user.currentRoom) {
       socket.to(user.currentRoom).emit('user_typing', user.username);
     }
   });
 
-  socket.on('stop_typing', () => {
+  socket.on('typing_stop', () => {
     const user = users.get(socket.id);
     if (user && user.currentRoom) {
       socket.to(user.currentRoom).emit('user_stopped_typing', user.username);

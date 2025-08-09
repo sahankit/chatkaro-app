@@ -1,63 +1,34 @@
 #!/bin/bash
 
-echo "🎉 Free Server Deployment Options for ChatKaro"
-echo "=============================================="
-echo ""
-echo "Choose a free hosting platform:"
-echo ""
-echo "1) 🚀 Vercel (Recommended - Easy & Fast)"
-echo "   ✅ Free forever"
-echo "   ✅ Instant deployment"
-echo "   ✅ Auto HTTPS"
-echo "   ✅ Global CDN"
-echo ""
-echo "2) 🔥 Netlify (Great for static sites)"
-echo "   ✅ Free tier generous"
-echo "   ✅ Easy deployment"
-echo "   ✅ Form handling"
-echo ""
-echo "3) 🐙 GitHub Pages + Surge.sh"
-echo "   ✅ Completely free"
-echo "   ✅ GitHub integration"
-echo "   ✅ Custom domains"
-echo ""
-echo "4) 🌐 Railway (Full-stack friendly)"
-echo "   ✅ Free tier available"
-echo "   ✅ Database support"
-echo "   ✅ Easy scaling"
-echo ""
-echo "5) ⚡ Render (Modern platform)"
-echo "   ✅ Free tier"
-echo "   ✅ Auto-deploy from git"
-echo "   ✅ Full-stack support"
-echo ""
+echo "🚀 Deploying ChatKaro Backend for FREE..."
 
-read -p "Enter your choice (1-5): " PLATFORM_CHOICE
+# Create a simple deployment package
+mkdir -p deploy-package
+cp server/index.js deploy-package/
+cp server/package.json deploy-package/
 
-case $PLATFORM_CHOICE in
-    1)
-        echo "🚀 Deploying to Vercel..."
-        ./deploy-vercel.sh
-        ;;
-    2)
-        echo "🔥 Deploying to Netlify..."
-        ./deploy-netlify.sh
-        ;;
-    3)
-        echo "🐙 Deploying to GitHub Pages + Surge..."
-        ./deploy-github-surge.sh
-        ;;
-    4)
-        echo "🌐 Deploying to Railway..."
-        ./deploy-railway.sh
-        ;;
-    5)
-        echo "⚡ Deploying to Render..."
-        ./deploy-render.sh
-        ;;
-    *)
-        echo "❌ Invalid choice"
-        echo "💡 Tip: Try option 1 (Vercel) - it's the easiest!"
-        exit 1
-        ;;
-esac
+echo "📦 Deployment package created in 'deploy-package/' folder"
+echo ""
+echo "🎯 QUICK DEPLOY OPTIONS:"
+echo ""
+echo "1. GLITCH (Easiest - 2 minutes):"
+echo "   - Go to: https://glitch.com"
+echo "   - New Project → Import from GitHub"
+echo "   - Upload the files from 'deploy-package/' folder"
+echo "   - Click 'Show' to get your URL"
+echo ""
+echo "2. RENDER (Most Reliable):"
+echo "   - Go to: https://dashboard.render.com"
+echo "   - New Web Service → Upload files"
+echo "   - Upload 'deploy-package/' folder"
+echo "   - Build: npm install"
+echo "   - Start: npm start"
+echo ""
+echo "3. CODESANDBOX (Instant):"
+echo "   - Go to: https://codesandbox.io"
+echo "   - New → Node.js"
+echo "   - Upload files from 'deploy-package/'"
+echo "   - Click Run"
+echo ""
+echo "✨ I'll use your backend URL to connect the client!"
+echo "📋 Just give me the URL once it's deployed."

@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import io from 'socket.io-client';
 import { Send, Users, MessageCircle, Globe, Heart, Music, GraduationCap, ChevronDown } from 'lucide-react';
 import './App.css';
 
-const socket = io(process.env.NODE_ENV === 'production' ? window.location.origin : 'http://localhost:5000', {
+const socket = io(process.env.NODE_ENV === 'production' ? 'https://chatkaro-backend-pxk5.onrender.com' : 'http://localhost:5000', {
   autoConnect: true,
   reconnection: true,
   reconnectionAttempts: 5,
@@ -26,14 +26,25 @@ function App() {
   const [usernameSuggestions, setUsernameSuggestions] = useState([]);
   const [isJoining, setIsJoining] = useState(false);
   const [isRestoringSession, setIsRestoringSession] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const audioRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     setShowScrollButton(false);
   };
+
+  const playNotificationSound = useCallback(() => {
+    if (soundEnabled && audioRef.current) {
+      audioRef.current.currentTime = 0; // Reset to start
+      audioRef.current.play().catch(e => {
+        console.log('Could not play notification sound:', e);
+      });
+    }
+  }, [soundEnabled]);
 
   const handleScroll = () => {
     if (messagesContainerRef.current) {
@@ -153,6 +164,18 @@ function App() {
       setMessages(roomData.messages);
       setOnlineUsers(roomData.users);
       
+      // Add a welcome message
+      const welcomeMessage = {
+        id: `welcome-${Date.now()}`,
+        username: 'System',
+        content: `Welcome to ${roomData.roomName}! ${roomData.users?.length || 0} users are online. Start chatting!`,
+        timestamp: new Date().toISOString(),
+        isSystemMessage: true
+      };
+      setTimeout(() => {
+        setMessages(prev => [...prev, welcomeMessage]);
+      }, 500);
+      
       // Update URL with current room
       if (user) {
         updateUrl(user.username, roomData.roomId);
@@ -161,7 +184,14 @@ function App() {
     });
 
     socket.on('new_message', (message) => {
+      console.log('Received new message:', message);
       setMessages(prev => [...prev, message]);
+      // Play notification sound for messages from other users
+      if (message.username !== user?.username) {
+        playNotificationSound();
+      }
+      // Auto-scroll to bottom when receiving a message
+      setTimeout(scrollToBottom, 100);
     });
 
     socket.on('user_joined_room', (data) => {
@@ -268,7 +298,7 @@ function App() {
       socket.off('user_stopped_typing');
       socket.off('pong');
     };
-  }, [user]);
+  }, [user, currentRoom?.roomId, rooms, playNotificationSound]);
 
   const handleJoin = (e) => {
     e.preventDefault();
@@ -291,11 +321,11 @@ function App() {
     
     setIsJoining(true);
     setJoinError('');
-    socket.emit('join_user', { username: trimmedUsername });
+    socket.emit('join', { username: trimmedUsername });
   };
 
   const joinRoom = (roomId) => {
-    socket.emit('join_room', roomId);
+    socket.emit('join_room', { roomId });
     // Update URL immediately when joining room
     if (user) {
       updateUrl(user.username, roomId);
@@ -515,6 +545,13 @@ function App() {
                     {onlineUsers.length} online
                   </span>
                 </div>
+                <button 
+                  className={`sound-toggle ${soundEnabled ? 'enabled' : 'disabled'}`}
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  title={soundEnabled ? 'Disable sound notifications' : 'Enable sound notifications'}
+                >
+                  {soundEnabled ? '🔊' : '🔇'}
+                </button>
               </div>
 
               <div className="messages-container">
@@ -639,6 +676,11 @@ function App() {
           </div>
         </div>
       </footer>
+      
+      {/* Hidden audio element for notifications */}
+      <audio ref={audioRef} preload="auto">
+        <source src="data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmYfCCqAzPLZiTYIG2m98OScTwwOUarm7bhkGgU7k9n1unEoBC15yO/eizEIHWq+8+OWT" type="audio/wav" />
+      </audio>
     </div>
   );
 }
