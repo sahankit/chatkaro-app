@@ -11,7 +11,7 @@ const socket = io(process.env.NODE_ENV === 'production' ? 'https://chatkaro-back
 });
 
 // Private Chat Popup Component
-function PrivateChatPopup({ chat, onClose, onMinimize, onSendMessage, currentUser }) {
+function PrivateChatPopup({ chat, index, onClose, onMinimize, onSendMessage, currentUser }) {
   const [message, setMessage] = useState('');
   const messagesEndRef = useRef(null);
 
@@ -39,7 +39,10 @@ function PrivateChatPopup({ chat, onClose, onMinimize, onSendMessage, currentUse
   };
 
   return (
-    <div className={`private-chat-popup ${chat.isMinimized ? 'minimized' : ''}`}>
+    <div 
+      className={`private-chat-popup ${chat.isMinimized ? 'minimized' : ''}`}
+      style={{ '--popup-index': index }}
+    >
       <div className="private-chat-header">
         <div className="private-chat-title">
           <div className="user-avatar small">
@@ -915,10 +918,11 @@ function App() {
       </footer>
       
       {/* Private Chat Popups */}
-      {Array.from(privateChats.entries()).map(([username, chat]) => (
+      {Array.from(privateChats.entries()).map(([username, chat], index) => (
         <PrivateChatPopup
           key={username}
           chat={chat}
+          index={index}
           onClose={() => closePrivateChat(username)}
           onMinimize={() => minimizePrivateChat(username)}
           onSendMessage={(message) => sendPrivateMessage(username, message)}
