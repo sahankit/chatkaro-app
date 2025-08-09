@@ -21,22 +21,22 @@ const rooms = new Map();
 
 // Initialize default rooms
 const defaultRooms = [
-  { id: 'general', name: 'General Chat', description: 'General discussion' },
-  { id: 'tech', name: 'Tech Talk', description: 'Technology discussions' },
-  { id: 'gaming', name: 'Gaming', description: 'Gaming discussions' },
-  { id: 'music', name: 'Music', description: 'Music and entertainment' },
-  { id: 'sports', name: 'Sports', description: 'Sports discussions' },
-  { id: 'food', name: 'Food & Cooking', description: 'Food and cooking' },
-  { id: 'movies', name: 'Movies & TV', description: 'Movies and TV shows' },
-  { id: 'books', name: 'Books', description: 'Book discussions' },
-  { id: 'travel', name: 'Travel', description: 'Travel experiences' },
-  { id: 'fitness', name: 'Fitness', description: 'Health and fitness' },
-  { id: 'art', name: 'Art & Design', description: 'Art and design' },
-  { id: 'science', name: 'Science', description: 'Science discussions' },
-  { id: 'business', name: 'Business', description: 'Business and entrepreneurship' },
-  { id: 'education', name: 'Education', description: 'Learning and education' },
-  { id: 'random', name: 'Random', description: 'Random conversations' },
-  { id: 'help', name: 'Help & Support', description: 'Get help and support' }
+  { id: 'general', name: 'General Chat', description: 'General discussion', category: 'Popular' },
+  { id: 'tech', name: 'Tech Talk', description: 'Technology discussions', category: 'Technology' },
+  { id: 'gaming', name: 'Gaming', description: 'Gaming discussions', category: 'Entertainment' },
+  { id: 'music', name: 'Music', description: 'Music and entertainment', category: 'Entertainment' },
+  { id: 'sports', name: 'Sports', description: 'Sports discussions', category: 'Sports & Lifestyle' },
+  { id: 'food', name: 'Food & Cooking', description: 'Food and cooking', category: 'Sports & Lifestyle' },
+  { id: 'movies', name: 'Movies & TV', description: 'Movies and TV shows', category: 'Entertainment' },
+  { id: 'books', name: 'Books', description: 'Book discussions', category: 'Learning' },
+  { id: 'travel', name: 'Travel', description: 'Travel experiences', category: 'Sports & Lifestyle' },
+  { id: 'fitness', name: 'Fitness', description: 'Health and fitness', category: 'Sports & Lifestyle' },
+  { id: 'art', name: 'Art & Design', description: 'Art and design', category: 'Creative' },
+  { id: 'science', name: 'Science', description: 'Science discussions', category: 'Learning' },
+  { id: 'business', name: 'Business', description: 'Business and entrepreneurship', category: 'Professional' },
+  { id: 'education', name: 'Education', description: 'Learning and education', category: 'Learning' },
+  { id: 'random', name: 'Random', description: 'Random conversations', category: 'Popular' },
+  { id: 'help', name: 'Help & Support', description: 'Get help and support', category: 'Support' }
 ];
 
 defaultRooms.forEach(roomData => {
@@ -44,6 +44,7 @@ defaultRooms.forEach(roomData => {
     id: roomData.id,
     name: roomData.name,
     description: roomData.description,
+    category: roomData.category,
     users: new Set(),
     messages: []
   });
@@ -126,6 +127,7 @@ io.on('connection', (socket) => {
     id: room.id,
     name: room.name,
     description: room.description,
+    category: room.category,
     userCount: room.users.size
   }));
   socket.emit('rooms_list', roomsList);
@@ -199,6 +201,7 @@ io.on('connection', (socket) => {
         id: room.id,
         name: room.name,
         description: room.description,
+        category: room.category,
         userCount: room.users.size
       }));
       io.emit('rooms_list', updatedRoomsList);
@@ -468,6 +471,7 @@ io.on('connection', (socket) => {
         id: room.id,
         name: room.name,
         description: room.description,
+        category: room.category,
         userCount: room.users.size
       }));
       io.emit('rooms_list', updatedRoomsList);

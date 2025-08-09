@@ -1,0 +1,18 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://chatkaro-app.netlify.app/sitemap.xml
+
+# Crawl-delay for polite crawling
+Crawl-delay: 1
+
+# Block access to admin or private areas if any exist
+Disallow: /admin/
+Disallow: /private/
+Disallow: /*.json$
+
+# Allow access to important resources
+Allow: /static/
+Allow: /manifest.json
+Allow: /favicon.ico

@@ -1,32 +1,20 @@
-# Use Node.js 20 LTS
-FROM node:20-alpine
+# Use Node.js 18
+FROM node:18-alpine
 
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY server/package*.json ./server/
-COPY client/package*.json ./client/
-COPY package*.json ./
+# Copy package.json
+COPY server/package.json ./
 
 # Install dependencies
-RUN cd server && npm ci --only=production
-RUN cd client && npm ci --only=production
+RUN npm install
 
-# Copy source code
-COPY server/ ./server/
-COPY client/ ./client/
-
-# Build the client
-RUN cd client && npm run build
+# Copy server code
+COPY server/ ./
 
 # Expose port
-EXPOSE 8080
-
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=8080
-ENV HOST=0.0.0.0
+EXPOSE 3000
 
 # Start the server
-CMD ["node", "server/index.js"]
+CMD ["npm", "start"]

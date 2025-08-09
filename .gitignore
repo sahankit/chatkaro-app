@@ -6,3 +6,4 @@ client/build/
 .vscode/
 .idea/
 render-cli.tar.gz
+.vercel

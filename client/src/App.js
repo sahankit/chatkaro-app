@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import io from 'socket.io-client';
-import { Send, Users, MessageCircle, Globe, Heart, Music, GraduationCap, ChevronDown } from 'lucide-react';
+import { Send, Users, MessageCircle, Globe, Heart, Music, GraduationCap, ChevronDown, Monitor, Trophy, BookOpen, Palette, Briefcase } from 'lucide-react';
 import './App.css';
 
 const socket = io(process.env.NODE_ENV === 'production' ? 'https://chatkaro-backend-updated-1.onrender.com' : 'http://localhost:5000', {
@@ -43,7 +43,7 @@ function PrivateChatPopup({ chat, index, onClose, onMinimize, onSendMessage, cur
       className={`private-chat-popup ${chat.isMinimized ? 'minimized' : ''}`}
       style={{ '--popup-index': index }}
     >
-      <div className="private-chat-header">
+      <div className="private-chat-header" onClick={onMinimize}>
         <div className="private-chat-title">
           <div className="user-avatar small">
             {chat.username.charAt(0).toUpperCase()}
@@ -54,10 +54,24 @@ function PrivateChatPopup({ chat, index, onClose, onMinimize, onSendMessage, cur
           )}
         </div>
         <div className="private-chat-controls">
-          <button onClick={onMinimize} className="minimize-btn">
+          <button 
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent header click
+              onMinimize();
+            }} 
+            className="minimize-btn"
+          >
             {chat.isMinimized ? '▲' : '▼'}
           </button>
-          <button onClick={onClose} className="close-btn">✕</button>
+          <button 
+            onClick={(e) => {
+              e.stopPropagation(); // Prevent header click
+              onClose();
+            }} 
+            className="close-btn"
+          >
+            ✕
+          </button>
         </div>
       </div>
       
@@ -115,6 +129,7 @@ function App() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [privateChats, setPrivateChats] = useState(new Map());
   const [showUsersDropdown, setShowUsersDropdown] = useState(false);
+  const [mobileView, setMobileView] = useState('rooms'); // 'chat' or 'rooms' - start with rooms on mobile
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const typingTimeoutRef = useRef(null);
@@ -127,11 +142,40 @@ function App() {
   };
 
   const playNotificationSound = useCallback(() => {
-    if (soundEnabled && audioRef.current) {
-      audioRef.current.currentTime = 0; // Reset to start
-      audioRef.current.play().catch(e => {
-        console.log('Could not play notification sound:', e);
-      });
+    if (!soundEnabled) return;
+    
+    try {
+      // Create a simple notification sound using Web Audio API
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Create a pleasant notification sound (two-tone chime)
+      oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+      oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
+      
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      
+      oscillator.type = 'sine';
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+      
+      console.log('Playing notification sound');
+    } catch (error) {
+      console.log('Could not play notification sound:', error);
+      
+      // Fallback: try to play a simple beep using the audio element
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play().catch(e => {
+          console.log('Fallback audio also failed:', e);
+        });
+      }
     }
   }, [soundEnabled]);
 
@@ -311,6 +355,7 @@ function App() {
       console.log('Session restored successfully:', sessionData);
       setUser(sessionData.user);
       if (sessionData.currentRoom) {
+        console.log('Restored room data:', sessionData.currentRoom);
         setCurrentRoom(sessionData.currentRoom);
         setMessages(sessionData.currentRoom.messages || []);
         setOnlineUsers(sessionData.currentRoom.users || []);
@@ -335,15 +380,17 @@ function App() {
     });
 
     socket.on('room_joined', (roomData) => {
+      console.log('Room joined data received:', roomData);
       setCurrentRoom(roomData);
       setMessages(roomData.messages);
       setOnlineUsers(roomData.users);
       
       // Add a welcome message
+      const roomName = roomData.roomName || roomData.name || 'Chat Room';
       const welcomeMessage = {
         id: `welcome-${Date.now()}`,
         username: 'System',
-        content: `Welcome to ${roomData.roomName}! ${roomData.users?.length || 0} users are online. Start chatting!`,
+        content: `Welcome to ${roomName}! ${roomData.users?.length || 0} users are online. Start chatting!`,
         timestamp: new Date().toISOString(),
         isSystemMessage: true
       };
@@ -354,7 +401,7 @@ function App() {
       // Update URL with current room
       if (user) {
         updateUrl(user.username, roomData.roomId);
-        console.log('Current room saved to URL:', roomData.roomName);
+        console.log('Current room saved to URL:', roomName);
       }
     });
 
@@ -523,6 +570,15 @@ function App() {
     };
   }, [user, currentRoom?.roomId, rooms, playNotificationSound]);
 
+  // Auto-switch to rooms view on mobile if no current room
+  useEffect(() => {
+    const isMobile = window.innerWidth <= 768;
+    if (isMobile && !currentRoom && mobileView === 'chat') {
+      console.log('Auto-switching to rooms view on mobile - no current room');
+      setMobileView('rooms');
+    }
+  }, [currentRoom, mobileView]);
+
   const handleJoin = (e) => {
     e.preventDefault();
     const trimmedUsername = username.trim();
@@ -548,21 +604,28 @@ function App() {
   };
 
   const joinRoom = (roomId) => {
+    console.log('joinRoom called with roomId:', roomId);
     socket.emit('join_room', { roomId });
     // Update URL immediately when joining room
     if (user) {
       updateUrl(user.username, roomId);
     }
+    // Switch to chat view on mobile after selecting room
+    setMobileView('chat');
   };
 
   const sendMessage = (e) => {
     e.preventDefault();
+    console.log('Send message called:', { newMessage, currentRoom: currentRoom?.roomName });
     if (newMessage.trim() && currentRoom) {
+      console.log('Sending message:', newMessage.trim());
       socket.emit('send_message', { content: newMessage.trim() });
       setNewMessage('');
       handleStopTyping();
       // Auto-scroll to bottom when sending a message
       setTimeout(scrollToBottom, 100);
+    } else {
+      console.log('Message not sent - empty message or no room');
     }
   };
 
@@ -596,9 +659,18 @@ function App() {
 
   const getCategoryIcon = (category) => {
     switch (category) {
+      case 'Popular': return <MessageCircle className="w-4 h-4" />;
+      case 'Technology': return <Monitor className="w-4 h-4" />;
+      case 'Entertainment': return <Music className="w-4 h-4" />;
+      case 'Sports & Lifestyle': return <Trophy className="w-4 h-4" />;
+      case 'Learning': return <BookOpen className="w-4 h-4" />;
+      case 'Creative': return <Palette className="w-4 h-4" />;
+      case 'Professional': return <Briefcase className="w-4 h-4" />;
+      case 'Support': return <Users className="w-4 h-4" />;
+      case 'General': return <MessageCircle className="w-4 h-4" />;
+      // Legacy categories for backward compatibility
       case 'Regional': return <Globe className="w-4 h-4" />;
       case 'Social': return <Heart className="w-4 h-4" />;
-      case 'Entertainment': return <Music className="w-4 h-4" />;
       case 'Education': return <GraduationCap className="w-4 h-4" />;
       case 'International': return <Globe className="w-4 h-4" />;
       default: return <MessageCircle className="w-4 h-4" />;
@@ -606,10 +678,12 @@ function App() {
   };
 
   const groupedRooms = rooms.reduce((acc, room) => {
-    if (!acc[room.category]) {
-      acc[room.category] = [];
+    // Assign a default category if none exists
+    const category = room.category || 'General';
+    if (!acc[category]) {
+      acc[category] = [];
     }
-    acc[room.category].push(room);
+    acc[category].push(room);
     return acc;
   }, {});
 
@@ -622,8 +696,8 @@ function App() {
         <div className="login-card">
           <div className="login-header">
             <MessageCircle className="w-12 h-12 text-blue-500" />
-            <h1>ChatKaro</h1>
-            <p>{isRestoringSession ? 'Restoring your session...' : 'Free Online Chat Rooms'}</p>
+            <h1>ChatKaro - Free Chat Rooms</h1>
+            <p>{isRestoringSession ? 'Restoring your session...' : 'Join Free Chat Rooms Online | No Registration Required | Chat Karo with Friends Worldwide'}</p>
           </div>
           <form onSubmit={handleJoin} className="login-form">
             <input
@@ -681,13 +755,41 @@ function App() {
 
   return (
     <div className="app">
-      <header className="app-header">
+      {/* Mobile Navigation Header */}
+      <header className="app-header" role="banner">
         <div className="header-content">
           <div className="header-left">
-            <MessageCircle className="w-8 h-8" />
+            <MessageCircle className="w-8 h-8" aria-hidden="true" />
             <h1>ChatKaro</h1>
           </div>
-          <div className="header-center">
+          <div className="header-center mobile-nav">
+            {mobileView === 'chat' && (
+              <button 
+                className="mobile-rooms-btn"
+                onClick={() => setMobileView('rooms')}
+                title="Browse rooms"
+              >
+                <div className="current-room-info">
+                  <span className="room-name">
+                    {currentRoom ? (currentRoom.roomName || currentRoom.name || 'Chat Room') : 'Select Room'}
+                  </span>
+                  <span className="room-switch">
+                    {currentRoom ? 'Switch Room' : 'Choose Room'}
+                  </span>
+                </div>
+              </button>
+            )}
+            {mobileView === 'rooms' && (
+              <button 
+                className="mobile-back-btn"
+                onClick={() => setMobileView('chat')}
+                title="Back to chat"
+              >
+                ← Back to Chat
+              </button>
+            )}
+          </div>
+          <div className="header-center desktop-ad">
             {/* Google Ads - Header Banner */}
             <div className="ad-space header-ad">
               <div className="ad-placeholder">
@@ -697,13 +799,13 @@ function App() {
           </div>
           <div className="header-right">
             <div className="user-profile">
-              <div className="user-avatar-header">
+              <div className="user-avatar-header" aria-label="User avatar">
                 {user.username.charAt(0).toUpperCase()}
               </div>
               <div className="user-info">
-                <span className="username">{user.username}</span>
-                <div className="connection-status">
-                  <div className={`status-indicator ${isConnected ? 'online' : 'offline'}`}></div>
+                <span className="username" aria-label="Current username">{user.username}</span>
+                <div className="connection-status" role="status" aria-live="polite">
+                  <div className={`status-indicator ${isConnected ? 'online' : 'offline'}`} aria-hidden="true"></div>
                   <span className="status-text">{isConnected ? 'Online' : 'Connecting...'}</span>
                 </div>
               </div>
@@ -712,10 +814,11 @@ function App() {
         </div>
       </header>
 
-      <div className="app-content">
-        <aside className="sidebar">
+      <main className="app-content" role="main">
+        {/* Desktop Sidebar - Always visible on desktop */}
+        <aside className="sidebar desktop-only" role="complementary" aria-label="Chat room navigation">
           <div className="sidebar-header">
-            <h2>Chat Rooms</h2>
+            <h2>Available Chat Rooms</h2>
           </div>
           
           {/* Google Ads - Sidebar Top */}
@@ -726,24 +829,43 @@ function App() {
           </div>
           
           <div className="rooms-container">
+            <div style={{fontSize: '12px', color: '#667eea', padding: '4px 20px', fontWeight: '600'}}>
+              {rooms.length === 0 ? 'Loading...' : `${rooms.length} rooms available`}
+            </div>
             {rooms.length === 0 ? (
               <div style={{padding: '20px', textAlign: 'center', color: '#666'}}>
                 {isConnected ? 'Loading chat rooms...' : 'Connecting to server...'}
               </div>
             ) : (
               Object.entries(groupedRooms).map(([category, categoryRooms]) => (
-              <div key={category} className="room-category">
+              <div key={category || 'general'} className="room-category">
                 <h3 className="category-title">
-                  {getCategoryIcon(category)}
-                  {category}
+                  {getCategoryIcon(category || 'General')}
+                  {category || 'General'}
                 </h3>
                 <div className="rooms-list">
                   {categoryRooms.map(room => (
                     <button
                       key={room.id}
-                      onClick={() => joinRoom(room.id)}
+                      onClick={(e) => {
+                        console.log('Room button onClick:', room.id, room.name);
+                        e.preventDefault();
+                        e.stopPropagation();
+                        joinRoom(room.id);
+                      }}
+                      onTouchEnd={(e) => {
+                        console.log('Room button onTouchEnd:', room.id, room.name);
+                        e.preventDefault();
+                        e.stopPropagation();
+                        joinRoom(room.id);
+                      }}
                       className={`room-item ${currentRoom?.roomId === room.id ? 'active' : ''}`}
                       title={`Join ${room.name} - ${room.description}`}
+                      style={{
+                        position: 'relative',
+                        zIndex: 100,
+                        pointerEvents: 'auto'
+                      }}
                     >
                       <div className="room-icon">
                         {getCategoryIcon(category)}
@@ -779,12 +901,70 @@ function App() {
           </div>
         </aside>
 
-        <main className="chat-area">
+        {/* Mobile Room Selection Page */}
+        {mobileView === 'rooms' && (
+          <div className="mobile-rooms-page">
+            <div className="mobile-rooms-header">
+              <h2>Choose a Chat Room</h2>
+              <p>Select a room to start chatting</p>
+              <div style={{fontSize: '12px', color: '#667eea', marginTop: '8px'}}>
+                Debug: {rooms.length} rooms loaded, connected: {isConnected ? 'yes' : 'no'}
+              </div>
+            </div>
+            
+            <div className="mobile-rooms-container">
+              {rooms.length === 0 ? (
+                <div className="mobile-loading">
+                  <div className="loading-spinner"></div>
+                  <p>{isConnected ? 'Loading chat rooms...' : 'Connecting to server...'}</p>
+                </div>
+              ) : (
+                Object.entries(groupedRooms).map(([category, categoryRooms]) => (
+                  <div key={category || 'general'} className="mobile-room-category">
+                    <h3 className="mobile-category-title">
+                      {getCategoryIcon(category || 'General')}
+                      {category || 'General'}
+                    </h3>
+                    <div className="mobile-rooms-grid">
+                      {categoryRooms.map(room => (
+                        <button
+                          key={room.id}
+                          onClick={() => joinRoom(room.id)}
+                          className={`mobile-room-card ${currentRoom?.roomId === room.id ? 'active' : ''}`}
+                        >
+                          <div className="mobile-room-icon">
+                            {getCategoryIcon(category)}
+                          </div>
+                          <div className="mobile-room-content">
+                            <h4 className="mobile-room-name">{room.name}</h4>
+                            <p className="mobile-room-description">{room.description}</p>
+                            <div className="mobile-room-stats">
+                              <span className="mobile-user-count">
+                                <Users className="w-4 h-4" />
+                                {room.userCount || 0} online
+                              </span>
+                            </div>
+                          </div>
+                          {currentRoom?.roomId === room.id && (
+                            <div className="mobile-current-badge">Current</div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Chat Area - Desktop always, Mobile when mobileView === 'chat' */}
+        <main className={`chat-area ${mobileView === 'chat' ? 'mobile-active' : ''}`}>
           {currentRoom ? (
             <>
               <div className="chat-header">
                 <div className="chat-title">
-                  <h2>{currentRoom.roomName}</h2>
+                  <h2>{currentRoom.roomName || currentRoom.name || 'Chat Room'}</h2>
                   <span 
                     className="online-count clickable"
                     onClick={() => setShowUsersDropdown(!showUsersDropdown)}
@@ -794,13 +974,24 @@ function App() {
                     <ChevronDown className="w-4 h-4" />
                   </span>
                 </div>
-                <button 
-                  className={`sound-toggle ${soundEnabled ? 'enabled' : 'disabled'}`}
-                  onClick={() => setSoundEnabled(!soundEnabled)}
-                  title={soundEnabled ? 'Disable sound notifications' : 'Enable sound notifications'}
-                >
-                  {soundEnabled ? '🔊' : '🔇'}
-                </button>
+                <div className="chat-header-controls">
+                  {/* Mobile Room Selection Button in Header */}
+                  <button 
+                    className="mobile-header-rooms-btn"
+                    onClick={() => setMobileView('rooms')}
+                    title="Switch Room"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Switch</span>
+                  </button>
+                  <button 
+                    className={`sound-toggle ${soundEnabled ? 'enabled' : 'disabled'}`}
+                    onClick={() => setSoundEnabled(!soundEnabled)}
+                    title={soundEnabled ? 'Disable sound notifications' : 'Enable sound notifications'}
+                  >
+                    {soundEnabled ? '🔊' : '🔇'}
+                  </button>
+                </div>
               </div>
 
               {/* Users Dropdown */}
@@ -874,6 +1065,18 @@ function App() {
                     <ChevronDown className="w-5 h-5" />
                   </button>
                 )}
+
+                {/* Mobile Room Selection Button - Only show in chat view when rooms are available */}
+                {mobileView === 'chat' && rooms.length > 0 && (
+                  <button 
+                    className="mobile-room-select-fab"
+                    onClick={() => setMobileView('rooms')}
+                    title="Select Room"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span>Rooms</span>
+                  </button>
+                )}
               </div>
 
               {/* Typing indicator */}
@@ -916,6 +1119,15 @@ function App() {
                       disabled={!newMessage.trim()}
                       className="send-button"
                       title="Send message (Enter)"
+                      onTouchStart={(e) => e.preventDefault()}
+                      onClick={(e) => {
+                        console.log('Send button clicked');
+                        if (!newMessage.trim()) {
+                          console.log('Button disabled - no message');
+                          return;
+                        }
+                        sendMessage(e);
+                      }}
                     >
                       <Send className="w-5 h-5" />
                     </button>
@@ -928,7 +1140,24 @@ function App() {
               <div className="welcome-content">
                 <MessageCircle className="w-16 h-16 text-blue-500" />
                 <h2>Welcome to ChatKaro</h2>
-                <p>Select a chat room from the sidebar to start chatting!</p>
+                <p>Select a chat room to start chatting!</p>
+                
+                {/* Room Selection Buttons */}
+                <div className="welcome-room-buttons">
+                  <button 
+                    className="mobile-welcome-room-btn primary"
+                    onClick={() => setMobileView('rooms')}
+                  >
+                    <MessageCircle className="w-6 h-6" />
+                    Choose a Chat Room
+                  </button>
+                  <button 
+                    className="mobile-welcome-room-btn secondary"
+                    onClick={() => setMobileView('rooms')}
+                  >
+                    Browse All Rooms
+                  </button>
+                </div>
                 
                 {/* Google Ads - Welcome Screen */}
                 <div className="ad-space welcome-ad">
@@ -955,6 +1184,7 @@ function App() {
             </div>
           )}
         </main>
+      </main>
 
         {currentRoom && (
           <aside className="users-sidebar">
@@ -980,8 +1210,6 @@ function App() {
             </div>
           </aside>
         )}
-        
-      </div>
       
       {/* Google Ads - Footer Banner */}
       <footer className="app-footer">
